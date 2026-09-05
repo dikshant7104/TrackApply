@@ -1,0 +1,187 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ApplicationStatus {
+  SAVED
+  APPLIED
+  INTERVIEW
+  TECHNICAL_TEST
+  OFFER
+  REJECTED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  firstName     String
+  lastName      String
+  avatar        String?
+  role          UserRole  @default(USER)
+  isActive      Boolean   @default(true)
+  isEmailVerified Boolean @default(false)
+  passwordResetToken  String?
+  passwordResetExpiry DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  refreshTokens   RefreshToken[]
+  applications    JobApplication[]
+  resumes         Resume[]
+  coverLetters    CoverLetter[]
+  interviewPreps  InterviewPrep[]
+  aiGenerations   AiGeneration[]
+  auditLogs       AuditLog[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  isRevoked Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+model JobApplication {
+  id            String            @id @default(cuid())
+  userId        String
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company       String
+  jobTitle      String
+  status        ApplicationStatus @default(SAVED)
+  salary        String?
+  location      String?
+  jobUrl        String?
+  jobDescription String?
+  notes         String?
+  deadline      DateTime?
+  contactPerson String?
+  contactEmail  String?
+  appliedAt     DateTime?
+  interviewAt   DateTime?
+  resumeId      String?
+  resume        Resume?           @relation(fields: [resumeId], references: [id])
+  coverLetterId String?
+  coverLetter   CoverLetter?      @relation(fields: [coverLetterId], references: [id])
+  matchScore    Int?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  interviewPreps InterviewPrep[]
+  aiGenerations  AiGeneration[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([company])
+  @@map("job_applications")
+}
+
+model Resume {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  url          String
+  storageKey   String
+  isDefault    Boolean  @default(false)
+  parsedText   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  applications JobApplication[]
+
+  @@index([userId])
+  @@map("resumes")
+}
+
+model CoverLetter {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  content       String   @db.Text
+  applicationId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  applications JobApplication[]
+
+  @@index([userId])
+  @@map("cover_letters")
+}
+
+model InterviewPrep {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicationId String
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  questions     Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([applicationId])
+  @@map("interview_preps")
+}
+
+model AiGeneration {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicationId String?
+  application   JobApplication? @relation(fields: [applicationId], references: [id])
+  type          String   // cover_letter, match_score, interview_questions, job_summary
+  prompt        String   @db.Text
+  result        String   @db.Text
+  tokensUsed    Int?
+  model         String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([applicationId])
+  @@map("ai_generations")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  resource  String
+  resourceId String?
+  metadata  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@map("audit_logs")
+}
